@@ -1,2 +1,0 @@
-[console_scripts]
-sanas-ai-synapse = ai_synapse.instance_manager.cli:app

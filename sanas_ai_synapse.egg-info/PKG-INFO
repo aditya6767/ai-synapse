@@ -1,9 +1,0 @@
-Metadata-Version: 2.2
-Name: sanas-ai-synapse
-Version: 0.1.0
-Requires-Dist: django
-Requires-Dist: djangorestframework
-Requires-Dist: psycopg[binary]
-Requires-Dist: django-extensions
-Requires-Dist: typer[all]
-Dynamic: requires-dist
