@@ -36,9 +36,6 @@ RUN useradd -m -s /bin/bash ubuntu && \
     echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
     usermod -aG docker ubuntu
 
-RUN echo 'export PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"' >> /home/ubuntu/.bashrc \
-    && echo 'export PATH="$POETRY_HOME/bin:$VENV_PATH/bin:$PATH"' >> /home/ubuntu/.profile
-
 # Enable and start Docker
 RUN systemctl enable docker
 
