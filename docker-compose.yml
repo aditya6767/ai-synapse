@@ -5,10 +5,6 @@ services:
     image: postgres:latest
     container_name: postgres-local
     restart: always
-    # environment:
-    #   POSTGRES_USER: colo
-    #   POSTGRES_PASSWORD: colo@123
-    #   POSTGRES_DB: colo_db
     env_file:
       - dev.env
     ports:
