@@ -1,0 +1,7 @@
+setup.py
+ai_synapse.egg-info/PKG-INFO
+ai_synapse.egg-info/SOURCES.txt
+ai_synapse.egg-info/dependency_links.txt
+ai_synapse.egg-info/entry_points.txt
+ai_synapse.egg-info/requires.txt
+ai_synapse.egg-info/top_level.txt

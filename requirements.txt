@@ -1,0 +1,6 @@
+djangorestframework
+django
+psycopg
+django-extensions
+typer
+paramiko

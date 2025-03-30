@@ -1,0 +1,5 @@
+django
+djangorestframework
+psycopg[binary]
+django-extensions
+typer[all]
