@@ -38,3 +38,12 @@ class Server(models.Model):
             available_gpus=total_gpus
         )
         logger.info(f"Server {name} created with ip {ip_address}")
+
+    @classmethod
+    def get_available_server(cls):
+        """Returns an available server that is not running an instance."""
+        return cls.objects.filter(is_active=True).exclude(instances__status="running").select_related("instances").first()
+    
+    def mark_inactive(self):
+        self.is_active = False
+        self.save()

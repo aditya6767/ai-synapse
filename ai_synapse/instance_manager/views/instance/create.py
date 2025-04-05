@@ -14,27 +14,20 @@ class CreateInstanceView(APIView):
 
     def post(self, request):
         try:
-            """Start a Podman container instance on an available Colo server"""
             account = request.user
-            image = request.data.get("image")
+            image = request.data.get("image", "default_image:latest")
             n_gpus = request.data.get("n_gpus") or 1 
 
-            if not image:
-                logger.warning("No image provided")
-                image = "default_image:latest" #TODO: Replace with a default image
+            logger.info(f"User {account.username} requested an instance with image '{image}' and {n_gpus} GPUs.")
 
-            # Find an available server without a running instance
-            available_server = Server.objects.filter(is_active=True).exclude(instances__status="running").first()
+            available_server = Server.get_available_server()
 
             if not available_server:
                 logger.error(f"No available servers for user {account.username} to start instance")
-                return Response({"error": "No available servers"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(status=status.HTTP_409_CONFLICT)
 
-            tailscale_ip = Instance.create(account, available_server, image, n_gpus)
-
-            if tailscale_ip is None:
-                return Response({"error": "Couldn't start the instance"}, status=status.HTTP_400_BAD_REQUEST)
-
+            instance_id: str = Instance.create(account, available_server, image, n_gpus)
+            logger.info(f"Instance {instance_id} created successfully for user {account.username}")
             return Response(status=status.HTTP_201_CREATED)
         except Exception:
             logger.exception(f"Unexpected error occurred")

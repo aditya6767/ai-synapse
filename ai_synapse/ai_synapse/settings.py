@@ -169,3 +169,20 @@ LOGGING = {
 }
 
 TAILSCALE_AUTH_KEY = os.getenv("TAILSCALE_AUTH_KEY")
+SSH_USERNAME = os.getenv("SSH_USERNAME")
+
+# PODMAN_MOUNT_PATHS='/host/data/{username}:/container/data,/host/conf/{username}:/container/conf'
+raw_mount_paths = os.environ.get('PODMAN_MOUNT_PATHS', '')
+parsed_mount_paths = [path.strip() for path in raw_mount_paths.split(',') if path.strip()]
+
+PODMAN_SETTINGS = {
+    'mount_paths': parsed_mount_paths or [
+        "/mnt/data/:/mnt/data/:ro",
+        "/mnt/userdata/{username}:/home/ubuntu",
+    ],
+    'default_shm_size': os.environ.get('PODMAN_DEFAULT_SHM_SIZE', '1G'),
+    'default_pid_limit': int(os.environ.get('PODMAN_DEFAULT_PID_LIMIT', '-1')),
+    'degault_registry': os.environ.get('DEFAULT_REGISTRY', 'docker.io'),
+    'default_namespace': os.environ.get('DEFAULT_NAMESPACE', 'adityadockerhub6767'),
+    'default_image_repository': os.environ.get('DEFAULT_IMAGE_REPOSITORY', 'podman_images'),
+}

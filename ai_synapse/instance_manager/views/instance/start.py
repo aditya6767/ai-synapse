@@ -16,18 +16,18 @@ class StartInstanceView(APIView):
     def post(self, request):
         try:
             account = request.user
-            instance_id = request.data.get("instance_id")
+            instance_id = request.data.get("instance_id", None)
 
             if not instance_id:
-                return Response({"error": "Instance ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+                logger.error("Instance ID is required to stop the instance")
+                return Response(status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                instance = Instance.objects.get(id=instance_id, account=account, status="running")
-            except Instance.DoesNotExist:
-                return Response({"error": "No running instance found with this ID"}, status=status.HTTP_404_NOT_FOUND)
-
+            instance = Instance.objects.get(id=instance_id, account=account, status="running")
             instance.start()
-            return Response({"message": "Instance stopped successfully"}, status=status.HTTP_200_OK)
+            return Response(status=status.HTTP_200_OK)
+        except Instance.DoesNotExist:
+            logger.error(f"Instance with ID {instance_id} not found for user {account.username}")
+            return Response(status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.exception(f"Unexpected error while stopping instance: {str(e)}")
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
