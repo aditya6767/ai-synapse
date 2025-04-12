@@ -1,0 +1,9 @@
+/* frontend/src/style.css */
+/* Add some basic styles to confirm CSS loading */
+h2 {
+    color: blueviolet;
+  }
+  #app p {
+      font-style: italic;
+      color: #555;
+  }
