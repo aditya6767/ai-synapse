@@ -6,6 +6,7 @@ from rest_framework import status
 
 from instance_manager.models import Instance
 from user_manager.permissions import IsAuthenticatedUser
+from instance_manager.exceptions import InstanceAlreadyRunningException
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,12 @@ class StartInstanceView(APIView):
                 return Response(status=status.HTTP_400_BAD_REQUEST)
 
             instance = Instance.objects.get(id=instance_id, account=account, status="running")
+            
             instance.start()
             return Response(status=status.HTTP_200_OK)
+        except InstanceAlreadyRunningException:
+            logger.error(f"Instance with ID {instance_id} is already running for user {account.username}")
+            return Response(status=status.HTTP_409_CONFLICT)
         except Instance.DoesNotExist:
             logger.error(f"Instance with ID {instance_id} not found for user {account.username}")
             return Response(status=status.HTTP_404_NOT_FOUND)

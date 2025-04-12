@@ -17,6 +17,12 @@ from user_manager.models import Account
 from .server import Server
 from .image import Image
 
+from ..exceptions import (
+    InstanceAlreadyRunningException, 
+    InstanceAlreadyStoppedException
+)
+
+
 logger = logging.getLogger(__name__)
 
 def generate_instance_id():
@@ -76,124 +82,129 @@ class Instance(models.Model):
         Connects to the instance's server and starts its associated Podman container.
         Ensures idempotency and updates instance status.
         """
-        ssh: paramiko.SSHClient | None = None # Ensure ssh client is defined for finally block
+        with transaction.atomic():
+            ssh: paramiko.SSHClient | None = None # Ensure ssh client is defined for finally block
 
-        try:
-            server = self.server
-            image_obj = self.image
-            account = self.account
+            try:
+                server = self.server
+                image_obj = self.image
+                account = self.account
 
-            username = account.username
-            if not username: raise ValueError(f"Account {account.id} has no username.")
+                username = account.username
+                if not username: raise ValueError(f"Account {account.id} has no username.")
 
-            # Use instance ID as the unique container name for simplicity and reliability
-            container_name = f"{self.instance_id}-{username}-container"
+                # Use instance ID as the unique container name for simplicity and reliability
+                container_name = self._get_container_name(username)
 
-            logger.info(f"Processing start request for instance {self.instance_id} (Container: {container_name}) on {server.name}")
+                logger.info(f"Processing start request for instance {self.instance_id} (Container: {container_name}) on {server.name}")
 
-            # Check image usability from Django model first
-            # Add ingestion status check back here if you implement it later
-            if not image_obj.is_available:
-                raise ValueError(f"Image '{image_obj.name}' is marked as unavailable.")
-            registry_image_name = image_obj.custom_registry_image_name
-            if not registry_image_name:
-                raise ValueError(f"Image '{image_obj.name}' missing custom registry name.")
+                # Check image usability from Django model first
+                # Add ingestion status check back here if you implement it later
+                if not image_obj.is_available:
+                    raise ValueError(f"Image '{image_obj.name}' is marked as unavailable.")
+                registry_image_name = image_obj.custom_registry_image_name
+                if not registry_image_name:
+                    raise ValueError(f"Image '{image_obj.name}' missing custom registry name.")
 
-            ssh = self._connect_ssh(server.ip_address)
+                ssh = self._connect_ssh(server.ip_address)
 
-            logger.debug(f"Checking current state of container '{container_name}' on {server.name}...")
-            is_currently_running = self._check_user_container_running(ssh, container_name, server.name)
+                logger.debug(f"Checking current state of container '{container_name}' on {server.name}...")
+                is_currently_running = self._check_user_container_running(ssh, container_name, server.name)
 
-            if is_currently_running:
-                logger.info(f"Container '{container_name}' for instance {self.instance_id} is already running on {server.name}.")
-                # Ensure DB state matches reality
-                if self.status != InstanceStatus.RUNNING:
-                    logger.warning(f"Instance {self.instance_id} DB status was '{self.status}', updating to RUNNING.")
-                    self.status = InstanceStatus.RUNNING
-                    self.save()
-                return
+                if is_currently_running:
+                    logger.info(f"Container '{container_name}' for instance {self.instance_id} is already running on {server.name}.")
+                    if self.status != InstanceStatus.RUNNING:
+                        logger.warning(f"Instance {self.instance_id} DB status was '{self.status}', updating to RUNNING.")
+                        self.status = InstanceStatus.RUNNING
+                        self.save()
+                    raise InstanceAlreadyRunningException
 
-            # If not running, attempt cleanup before starting
-            logger.info(f"Container '{container_name}' not running. Attempting cleanup before start...")
-            # Use stop/remove helper. We don't treat cleanup failure as fatal, just log it.
-            self._stop_and_remove_container(ssh, container_name, server.name)
-            
-            self.status = InstanceStatus.PENDING
-            self.save()
+                # If not running, attempt cleanup before starting
+                logger.info(f"Container '{container_name}' not running. Attempting cleanup before start...")
+                self._stop_and_remove_container(ssh, container_name, server.name)
+                
+                self.status = InstanceStatus.PENDING
+                self.save()
 
-            logger.debug(f"Preparing volumes for user '{username}'")
-            volume_args = self._get_volume_mounts(username)
+                logger.debug(f"Preparing volumes for user '{username}'")
+                volume_args = self._get_volume_mounts(username)
 
-            logger.debug(f"Ensuring image '{registry_image_name}' is pulled on {server.hostname}")
-            self._ensure_image_pulled(ssh, registry_image_name, server.hostname)
+                logger.debug(f"Ensuring image '{registry_image_name}' is pulled on {server.hostname}")
+                self._ensure_image_pulled(ssh, registry_image_name, server.hostname)
 
-            logger.info(f"Attempting to run container '{container_name}'...")
-            container_id = self._run_podman_container(
-                ssh,
-                container_name,
-                image_obj,
-                volume_args,
-                self.instance_id,
-                server # Pass instance ID for container hostname
-            )
+                logger.info(f"Attempting to run container '{container_name}'...")
+                container_id = self._run_podman_container(
+                    ssh,
+                    container_name,
+                    image_obj,
+                    volume_args,
+                    self.instance_id,
+                    server
+                )
 
-            logger.info(f"Container '{container_id}' started. Fetching IP address...")
-            self.instance_ip = server.instance_ip
-            self.status = InstanceStatus.RUNNING
-            self.save()
-            logger.info(f"Instance {self.instance_id} (Container {container_id}) successfully started and marked as running on {server.name}")
+                logger.info(f"Container '{container_id}' started. Fetching IP address...")
+                self.instance_ip = server.instance_ip
+                self.status = InstanceStatus.RUNNING
+                self.save()
+                logger.info(f"Instance {self.instance_id} (Container {container_id}) successfully started and marked as running on {server.name}")
 
-        except Exception as e:
-            logger.error(f"Failed to start instance {self.instance_id}: {e}")
-            raise
-        finally:
-            if ssh:
-                try:
-                    ssh.close()
-                    logger.debug(f"SSH connection closed for {server.hostname if 'server' in locals() else 'unknown server'}")
-                except Exception as e_close:
-                     logger.error(f"Error closing SSH connection: {e_close}")
+            except Exception as e:
+                logger.error(f"Failed to start instance {self.instance_id}: {e}")
+                raise
+            finally:
+                if ssh:
+                    try:
+                        ssh.close()
+                        logger.debug(f"SSH connection closed for {server.hostname if 'server' in locals() else 'unknown server'}")
+                    except Exception as e_close:
+                        logger.error(f"Error closing SSH connection: {e_close}")
 
-    def stop(
-        self
-    ) -> None:
-        logger.info(f"Stopping instance {self.container_id} for user {self.account.username}")
-        # ssh = paramiko.SSHClient()
-        # ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        # ssh.connect(
-        #     hostname=instance.server.ip_address,
-        #     username=f"{account.username}",
-        #     key_filename="/path/to/private_key"
-        # )
+    def stop_instance(self) -> None:
+        """
+        Connects to the instance's server and stops & removes its associated Podman container.
+        Updates instance status appropriately.
+        """
+        with transaction.atomic():
+            ssh: paramiko.SSHClient | None = None # Ensure ssh client is defined for finally block
 
-        # PODMAN_STOP_CMD = "podman stop {container_id} && podman rm {container_id}"
-        # stop_command = PODMAN_STOP_CMD.format(container_id=instance.container_id)
-        # stdin, stdout, stderr = ssh.exec_command(stop_command)
+            try:
+                ssh = self._connect_ssh(server.name)
+                server = self.server
+                if not server:
+                    if self.status == InstanceStatus.STOPPED:
+                        logger.info(f"Instance {self.instance_id} already stopped and has no server assigned.")
+                        return True
+                    raise ValueError(f"Instance {self.instance_id} has no Server association, cannot determine where to stop.")
 
-        # error_output = stderr.read().decode().strip()
-        # if error_output:
-        #     logger.error(f"Error stopping container {instance.container_id}: {error_output}")
-        #     raise Exception(f"Error stopping container {instance.container_id}: {error_output}")
+                container_identifier = self.instance_id
 
-        container_id = self.container_id
-        command = f"podman stop {container_id} && podman rm {container_id}"
+                logger.info(f"Processing stop request for instance {self.instance_id} on {server.name}")
 
-        result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                is_running = self._check_user_container_running(ssh, container_identifier, server.name)
+                if not is_running:
+                    logger.info(f"Container '{container_identifier}' for instance {self.instance_id} is already stopped on {server.name}.")
+                    if self.status != InstanceStatus.STOPPED:
+                        logger.warning(f"Instance {self.instance_id} DB status was '{self.status}', updating to STOPPED.")
+                        self.status = InstanceStatus.STOPPED
+                        self.save()
+                    raise InstanceAlreadyStoppedException
+                       
+                self._stop_and_remove_container(
+                    ssh,
+                    container_identifier,
+                    server.name
+                )
+            except Exception as e:
+                logger.error(f"Failed to complete stop process for instance {self.instance_id}: {e}")
+                raise 
+            finally:
+                if ssh:
+                    try:
+                        ssh.close()
+                        logger.debug(f"SSH connection closed for {server.name}")
+                    except Exception as e_close:
+                        logger.error(f"Error closing SSH connection: {e_close}")
 
-        if result.returncode == 0:
-            logger.info(f"Stopped {container_id} successfully")
-        else:
-            raise Exception(f"Error stopping container {container_id}: {result.stderr.strip()}")
-        self.status = "stopped"
-        self.save()
-
-        server = self.instance.server
-        server.available_gpus = server.available_gpus + self.instance.n_gpus
-        server.save()
-
-        # ssh.close()
-
-        logger.info(f"Instance {self.instance.container_id} stopped successfully")
 
     def _connect_ssh(self, ip_address: str) -> SSHClient:
         """Establish an SSH connection to the instance."""
@@ -207,9 +218,9 @@ class Instance(models.Model):
         )
         return ssh
     
-    def _get_container_name(self, container_name: str) -> str:
-        refined_container_name = re.sub(r"[._]", "-", container_name)
-        return refined_container_name
+    def _get_container_name(self, username: str) -> str:
+        container_name = f"{self.instance_id}-{username}-container"
+        return container_name
     
     def _get_volume_mounts(self, username: str) -> List[str]:
         """
@@ -315,7 +326,7 @@ class Instance(models.Model):
             else:
                 raise Exception(f"SSH execution failed on {instance_id}: {e}") from e
             
-    def _stop_and_remove_container(self, ssh, container_name: str, instance_id: str) -> None:
+    def _stop_and_remove_container(self, ssh, container_name: str, server_name: str) -> None:
         """
         Stop and remove the specified Podman container, using Django settings.
         Runs stop and remove as separate commands for better error handling.
@@ -330,29 +341,23 @@ class Instance(models.Model):
             logger.exception(f"Error accessing Podman stop/remove settings: {e}")
             raise ImproperlyConfigured(f"Error accessing Podman stop/remove settings: {e}") from e
 
-        container_stopped = False
-        stop_cmd_failed = False
-
         stop_command = f"sudo podman stop -t {stop_timeout} {container_name}"
-        logger.debug(f"Executing stop command on {instance_id}: {stop_command}")
+        logger.debug(f"Executing stop command on {server_name}: {stop_command}")
         try:
             stdin, stdout, stderr = ssh.exec_command(stop_command, timeout=ssh_timeout)
             exit_status = stdout.channel.recv_exit_status()
             stderr_output = stderr.read().decode().strip()
 
             if exit_status == 0:
-                logger.info(f"Container {container_name} stopped successfully on {instance_id}")
-                container_stopped = True
+                logger.info(f"Container {container_name} stopped successfully on {server_name}")
             elif exit_status == 125 or "no such container" in stderr_output.lower():
-                logger.warning(f"Container {container_name} not found on {instance_id} during stop attempt (treating as stopped).")
-                container_stopped = True
+                logger.warning(f"Container {container_name} not found on {server_name} during stop attempt (treating as stopped).")
             else:
-                logger.error(f"Failed to stop container {container_name} on {instance_id}. Exit: {exit_status}, Error: {stderr_output}")
-                stop_cmd_failed = True
-
+                logger.error(f"Failed to stop container {container_name} on {server_name}. Exit: {exit_status}, Error: {stderr_output}")
+                raise Exception(f"Failed to stop container {container_name} on {server_name}. Error: {stderr_output}")
         except Exception as e:
-            logger.exception(f"Error executing stop command for {container_name} on {instance_id}: {e}")
-            stop_cmd_failed = True
+            logger.exception(f"Error executing stop command for {container_name} on {server_name}: {e}")
+            raise Exception(f"Failed during stop operation for {container_name} on {server_name}: {e}") from e
 
         remove_command_parts = [f"sudo podman", "rm"]
         if force_remove:
@@ -360,28 +365,28 @@ class Instance(models.Model):
         remove_command_parts.append(container_name)
         remove_command = " ".join(remove_command_parts)
 
-        logger.debug(f"Executing remove command on {instance_id}: {remove_command}")
+        logger.debug(f"Executing remove command on {server_name}: {remove_command}")
         try:
             stdin, stdout, stderr = ssh.exec_command(remove_command, timeout=ssh_timeout)
             exit_status = stdout.channel.recv_exit_status()
             stderr_output = stderr.read().decode().strip()
 
             if exit_status == 0:
-                logger.info(f"Container {container_name} removed successfully on {instance_id}.")
+                logger.info(f"Container {container_name} removed successfully on {server_name}.")
             elif (exit_status == 125 or "no such container" in stderr_output.lower()):
                 if ignore_not_found:
-                    logger.warning(f"Container {container_name} not found on {instance_id} during remove attempt (ignored).")
+                    logger.warning(f"Container {container_name} not found on {server_name} during remove attempt (ignored).")
                 else:
-                    logger.error(f"Container {container_name} not found on {instance_id} during remove attempt (Error). Exit: {exit_status}, Message: {stderr_output}")
-                    raise Exception(f"Container {container_name} not found on {instance_id} during remove.")
+                    logger.error(f"Container {container_name} not found on {server_name} during remove attempt (Error). Exit: {exit_status}, Message: {stderr_output}")
+                    raise Exception(f"Container {container_name} not found on {server_name} during remove.")
             else:
-                logger.error(f"Failed to remove container {container_name} on {instance_id}. Exit: {exit_status}, Error: {stderr_output}")
-                raise Exception(f"Failed to remove container {container_name} on {instance_id}. Error: {stderr_output}")
+                logger.error(f"Failed to remove container {container_name} on {server_name}. Exit: {exit_status}, Error: {stderr_output}")
+                raise Exception(f"Failed to remove container {container_name} on {server_name}. Error: {stderr_output}")
 
         except Exception as e:
             if not isinstance(e, ImproperlyConfigured):
-                logger.exception(f"Error executing remove command for {container_name} on {instance_id}: {e}")
-                raise Exception(f"Failed during remove operation for {container_name} on {instance_id}: {e}") from e
+                logger.exception(f"Error executing remove command for {container_name} on {server_name}: {e}")
+                raise Exception(f"Failed during remove operation for {container_name} on {server_name}: {e}") from e
             else:
                 raise e
             

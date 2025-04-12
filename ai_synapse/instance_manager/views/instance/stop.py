@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from instance_manager.models import Instance
+from instance_manager.exceptions import InstanceAlreadyStoppedException
 from user_manager.permissions import IsAuthenticatedUser
 
 logger = logging.getLogger(__name__)
@@ -19,15 +20,17 @@ class StopInstanceView(APIView):
             instance_id = request.data.get("instance_id")
 
             if not instance_id:
-                return Response({"error": "Instance ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                instance = Instance.objects.get(id=instance_id, account=account, status="running")
-            except Instance.DoesNotExist:
-                return Response({"error": "No running instance found with this ID"}, status=status.HTTP_404_NOT_FOUND)
-
+            instance = Instance.objects.get(id=instance_id, account=account, status="running")
             instance.stop()
-            return Response({"message": "Instance stopped successfully"}, status=status.HTTP_200_OK)
+            return Response(status=status.HTTP_200_OK)
+        except Instance.DoesNotExist:
+            logger.error(f"Instance with ID {instance_id} not found for user {account.username}")
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        except InstanceAlreadyStoppedException:
+            logger.error(f"Instance with ID {instance_id} is already stopped for user {account.username}")
+            return Response(status=status.HTTP_409_CONFLICT)
         except Exception as e:
             logger.exception(f"Unexpected error while stopping instance: {str(e)}")
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)

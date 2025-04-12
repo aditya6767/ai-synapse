@@ -17,9 +17,6 @@ class Server(models.Model):
     def __str__(self):
         return self.name
     
-    def has_running_instance(self):
-        return self.instances.filter(status="running").exists()
-    
     @classmethod
     def list_all(cls) -> List["Server"]:
         return cls.objects.all()
@@ -47,3 +44,6 @@ class Server(models.Model):
     def mark_inactive(self):
         self.is_active = False
         self.save()
+
+    def has_running_instance(self):
+        return self.instances.filter(status="running").exists()
