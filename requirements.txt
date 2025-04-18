@@ -5,3 +5,5 @@ django-extensions
 typer
 paramiko
 django-vite
+notebook
+ipython

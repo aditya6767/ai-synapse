@@ -1,38 +1,40 @@
-// frontend/vite.config.js
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+import { resolve } from 'path';
 
+// https://vite.dev/config/
 export default defineConfig({
-  // Base URL for assets needs to match Django's STATIC_URL
-  base: '/static/',
+  plugins: [
+    react(),
+    tailwindcss(),
+  ],
+
+  base: '/',
 
   build: {
-    // Output directory for production build.
-    // IMPORTANT: Adjust this path relative to the 'frontend' directory.
-    // This example assumes Vite builds into 'backend/static/dist/'.
-    // Change '../backend/static/dist' if your structure is different!
-    outDir: '../ai_synapse/static/dist',
-
-    // Generate manifest.json for django-vite
-    manifest: true,
-
-    // Define your JavaScript entry point(s)
+    // Standard output directory for SPA build (relative to frontend/)
+    outDir: 'dist',
+    manifest: true, // Good practice, useful for some deployment strategies
     rollupOptions: {
-      input: {
-        main: 'src/main.js', // Points to frontend/src/main.js
-      },
+      // Vite uses index.html as the default input for SPAs
+      input: resolve(__dirname, 'index.html'),
     },
-
-    // Put assets directly in outDir without an 'assets' subfolder
-    assetsDir: '',
-    // Clean the output directory before building
-    emptyOutDir: true,
   },
 
   server: {
-    // Configuration for Vite's development server
-    origin: 'http://127.0.0.1:5173', // Helps with HMR connection
     host: '127.0.0.1',
-    port: 5173,
+    port: 5173, // Vite dev server port
     strictPort: true,
+    // --- Proxy API requests to Django backend during development ---
+    proxy: {
+      // Requests starting with /api will be forwarded to Django on port 8000
+      '/api': {
+        target: 'http://127.0.0.1:8000', // Your Django backend address
+        changeOrigin: true, // Recommended for virtual hosts
+        // secure: false, // Uncomment if Django uses HTTPS with self-signed cert (dev only)
+      }
+    }
+    // -------------------------------------------------------------
   },
-});
+})

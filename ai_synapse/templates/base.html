@@ -1,0 +1,39 @@
+{% load django_vite %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Synapse{% endblock %}</title>
+
+    {% comment %} This tag includes CSS from main.js in dev/prod and HMR client in dev {% endcomment %}
+    {% vite_hmr_client %}
+
+    {% vite_asset 'src/main.jsx' %}
+
+</head>
+<body class="bg-green-500">
+    <header style="background-color: #334155; color: white; padding: 10px 20px;">
+        <h1>AI Synapse</h1>
+        <nav>
+            <a href="/" style="color: white; margin-right: 10px;">Dashboard</a>
+            </nav>
+    </header>
+
+    <main style="padding: 20px;">
+        {% block content %}
+            <p>Default content from base template.</p>
+        {% endblock content %}
+
+        <div id="vite-hook">Waiting for Vite content...</div>
+    </main>
+
+    <footer style="margin-top: 40px; padding: 10px 20px; border-top: 1px solid #ccc; font-size: 0.9em;">
+        &copy; {% now "Y" %} AI Synapse Project
+    </footer>
+
+    {% comment %} This tag includes the JS bundle(s) in production {% endcomment %}
+
+</body>
+</html>

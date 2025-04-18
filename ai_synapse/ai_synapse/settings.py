@@ -15,12 +15,18 @@ import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+print(f"--- settings.py: BASE_DIR is set to: {BASE_DIR} ---") # Add this line
 
 LOGGING_DIR = os.path.join(BASE_DIR, "logs")
 if not os.path.exists(LOGGING_DIR):
     os.makedirs(LOGGING_DIR)
 
 
+CORS_ALLOWED_ORIGINS = ["*"]
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+]
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
@@ -42,7 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_vite',
+    # 'django_vite',
     'rest_framework',
     'user_manager',
     'instance_manager',
@@ -64,7 +70,7 @@ ROOT_URLCONF = 'ai_synapse.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'ai_synapse' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -136,8 +142,17 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
-    BASE_DIR / "static",
+    BASE_DIR / "assets",
 ]
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Use Vite dev server when DEBUG=True, use built assets when DEBUG=False.
+# DJANGO_VITE_DEV_MODE = DEBUG
+DJANGO_VITE = {
+    "default": {
+        "dev_mode": DEBUG,
+    }
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

@@ -4,8 +4,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from ai_synapse.instance_manager.models import Image
-from ai_synapse.user_manager.permissions import IsAuthenticatedUser
+from instance_manager.models import Image
+from user_manager.permissions import IsAuthenticatedUser
 
 logger = logging.getLogger(__name__)
 

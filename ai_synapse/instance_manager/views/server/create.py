@@ -4,8 +4,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from ai_synapse.instance_manager.models import Server
-from ai_synapse.user_manager.permissions import IsAdminUser
+from instance_manager.models import Server
+from user_manager.permissions import IsAdminUser
 
 logger = logging.getLogger(__name__)
 
