@@ -15,9 +15,6 @@ class ListImagesView(APIView):
     def get(self, request):
         try:
             images = Image.list_all() 
-            images = {
-                "images": images
-            }
             return Response(images, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"Unexpected error occurred: {str(e)}")

@@ -19,7 +19,7 @@ class Server(models.Model):
     
     @classmethod
     def list_all(cls) -> List["Server"]:
-        return cls.objects.all()
+        return list(cls.objects.values())
     
     @classmethod
     def create(
@@ -27,12 +27,14 @@ class Server(models.Model):
         name: str,
         ip_address: str,
         total_gpus: int = 2,
+        is_active: bool = True,
     ) -> None:
         cls.objects.create(
             name=name, 
             ip_address=ip_address, 
             total_gpus=total_gpus, 
-            available_gpus=total_gpus
+            available_gpus=total_gpus,
+            is_active=is_active,
         )
         logger.info(f"Server {name} created with ip {ip_address}")
 

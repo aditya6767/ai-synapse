@@ -119,7 +119,7 @@ function SignupPage() {
               <label htmlFor="username" className="block text-sm font-medium text-gray-700">Username <span className="text-red-500">*</span></label>
               <div className="mt-1">
                 <input id="username" name="username" type="text" required value={username} onChange={(e) => setUsername(e.target.value)} disabled={isLoading}
-                       className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${getFieldError('username') ? 'border-red-500' : 'border-gray-300'}`} />
+                       className={`appearance-none block text-gray-900 w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${getFieldError('username') ? 'border-red-500' : 'border-gray-300'}`} />
                 {getFieldError('username') && <p className="mt-1 text-xs text-red-600">{getFieldError('username')}</p>}
               </div>
             </div>
@@ -128,7 +128,7 @@ function SignupPage() {
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email <span className="text-red-500">*</span></label>
               <div className="mt-1">
                 <input id="email" name="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading}
-                       className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${getFieldError('email') ? 'border-red-500' : 'border-gray-300'}`} />
+                       className={`appearance-none block text-gray-900 w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${getFieldError('email') ? 'border-red-500' : 'border-gray-300'}`} />
                 {getFieldError('email') && <p className="mt-1 text-xs text-red-600">{getFieldError('email')}</p>}
               </div>
             </div>
@@ -137,7 +137,7 @@ function SignupPage() {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password <span className="text-red-500">*</span></label>
               <div className="mt-1">
                 <input id="password" name="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading}
-                       className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${getFieldError('password') ? 'border-red-500' : 'border-gray-300'}`} />
+                       className={`appearance-none block text-gray-900 w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${getFieldError('password') ? 'border-red-500' : 'border-gray-300'}`} />
                  {getFieldError('password') && <p className="mt-1 text-xs text-red-600">{getFieldError('password')}</p>}
               </div>
             </div>
@@ -146,7 +146,7 @@ function SignupPage() {
               <label htmlFor="password2" className="block text-sm font-medium text-gray-700">Confirm Password <span className="text-red-500">*</span></label>
               <div className="mt-1">
                 <input id="password2" name="password2" type="password" required value={password2} onChange={(e) => setPassword2(e.target.value)} disabled={isLoading}
-                       className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${getFieldError('password2') ? 'border-red-500' : 'border-gray-300'}`} />
+                       className={`appearance-none block text-gray-900 w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${getFieldError('password2') ? 'border-red-500' : 'border-gray-300'}`} />
                  {getFieldError('password2') && <p className="mt-1 text-xs text-red-600">{getFieldError('password2')}</p>}
               </div>
             </div>

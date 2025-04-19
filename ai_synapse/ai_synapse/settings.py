@@ -201,7 +201,7 @@ PODMAN_SETTINGS = {
     ],
     'default_shm_size': os.environ.get('PODMAN_DEFAULT_SHM_SIZE', '1G'),
     'default_pid_limit': int(os.environ.get('PODMAN_DEFAULT_PID_LIMIT', '-1')),
-    'degault_registry': os.environ.get('DEFAULT_REGISTRY', 'docker.io'),
+    'default_registry': os.environ.get('DEFAULT_REGISTRY', 'docker.io'),
     'default_namespace': os.environ.get('DEFAULT_NAMESPACE', 'adityadockerhub6767'),
     'default_image_repository': os.environ.get('DEFAULT_IMAGE_REPOSITORY', 'podman_images'),
 }

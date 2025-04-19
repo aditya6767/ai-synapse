@@ -70,9 +70,9 @@ class Image(models.Model):
         cudnn_version: str = "",
         is_available: bool = False,
     ) -> None:
-        default_registry = settings.default_registry
-        default_namespace = settings.default_namespace
-        default_image_repository = settings.default_image_repository
+        default_registry = settings.PODMAN_SETTINGS["default_registry"]
+        default_namespace = settings.PODMAN_SETTINGS["default_namespace"]
+        default_image_repository = settings.PODMAN_SETTINGS["default_image_repository"]
         custom_registry_image_name = f"{default_registry}/{default_namespace}/{default_image_repository}:{name}"
         cls.objects.create(
             name=name,
@@ -89,4 +89,4 @@ class Image(models.Model):
 
     @classmethod
     def list_all(cls) -> List["Image"]:
-        return cls.objects.all()
+        return list(cls.objects.values())

@@ -11,8 +11,11 @@ import SignupPage from './pages/SignUpPage';
 import InstanceListPage from './pages/InstanceListPage';
 import ImageListPage from './pages/ImageListPage';
 import ServerListPage from './pages/ServerListPage';
+import ServerCreatePage from './pages/ServerCreatePage';
+import ImageCreatePage from './pages/ImageCreatePage';
+
 // --- Import placeholder components for new routes ---
-const DefineImagePage = () => <div className="p-4"><h2 className="text-xl font-semibold">Define New Image</h2><p>(Build Component Here)</p></div>;
+const DefineImagePage = () => <div className="p-4"><h2 className="text-xl font-semibold">Define New Image</h2><p><ImageCreatePage/></p></div>;
 const AddServerPage = () => <div className="p-4"><h2 className="text-xl font-semibold">Add New Server</h2><p>(Build Component Here)</p></div>;
 const LaunchInstancePage = () => <div className="p-4"><h2 className="text-xl font-semibold">Launch New Instance</h2><p>(Build Component Here)</p></div>;
 const NotFoundPage = () => <div className="p-4 text-center"><h2>404 - Page Not Found</h2><Link to="/" className="text-blue-600">Go Home</Link></div>;
@@ -98,7 +101,7 @@ function MainLayout() {
              AI Synapse
         </div>
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1">
+        <nav className="flex-1 overflow-y-auto  px-2 py-4 space-y-1">
           <NavLink to="/">Instances</NavLink>
           <NavLink to="/images">Images</NavLink>
           {/* Conditionally render admin link */}
@@ -153,7 +156,7 @@ function App() {
         {/* Admin-protected routes */}
         {/* Wrap specific admin routes with RequireAdmin */}
         <Route path="servers" element={<RequireAdmin><ServerListPage /></RequireAdmin>} />
-        <Route path="servers/add" element={<RequireAdmin><AddServerPage /></RequireAdmin>} />
+        <Route path="servers/add" element={<RequireAdmin><ServerCreatePage /></RequireAdmin>} />
 
         {/* Fallback for unmatched routes *within* the authenticated layout */}
          <Route path="*" element={<div className="p-4 text-center"><h2>404 - Page Not Found in App</h2><Link to="/" className="text-blue-600">Go Home</Link></div>} />

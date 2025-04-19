@@ -15,10 +15,7 @@ class ListServersView(APIView):
     def get(self, request):
         try:
             servers = Server.list_all() 
-            servers_data = {
-                "servers": servers
-            }
-            return Response(servers_data, status=status.HTTP_200_OK)
+            return Response(servers, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception(f"Unexpected error occurred: {str(e)}")
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)

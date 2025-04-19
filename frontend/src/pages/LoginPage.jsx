@@ -122,7 +122,7 @@ function LoginPage() {
               </label>
               <div className="mt-1">
                 <input id="identifier" name="identifier" type="text" autoComplete="username email" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} disabled={isLoading}
-                       className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"/>
+                       className="appearance-none block text-gray-900 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"/>
               </div>
             </div>
             <div>
@@ -131,7 +131,7 @@ function LoginPage() {
               </label>
               <div className="mt-1">
                 <input id="password" name="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading}
-                       className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"/>
+                       className="appearance-none block text-gray-900 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"/>
               </div>
             </div>
             <div>
