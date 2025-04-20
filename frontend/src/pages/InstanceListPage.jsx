@@ -1,26 +1,52 @@
-// frontend/src/pages/InstanceListPage.jsx
-// Current time: Saturday, April 19, 2025 at 1:47 PM IST. Location: Bengaluru, Karnataka, India.
-
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom'; // Added useLocation
 
 // --- Reusable Status Badge Component ---
-function StatusBadge({ status }) { /* ... same as before ... */
-    status = status ? status.toLowerCase() : 'unknown';
-    let bgColor = 'bg-gray-100'; let textColor = 'text-gray-800'; let animate = '';
-    let text = status.charAt(0).toUpperCase() + status.slice(1);
-    switch (status) {
-        case 'running': bgColor = 'bg-green-100'; textColor = 'text-green-800'; break;
-        case 'stopped': bgColor = 'bg-gray-100'; textColor = 'text-gray-800'; break;
-        case 'error': bgColor = 'bg-red-100'; textColor = 'text-red-800'; break;
-        case 'pending': case 'starting': case 'stopping': bgColor = 'bg-yellow-100'; textColor = 'text-yellow-800'; animate = 'animate-pulse'; break;
-        default: bgColor = 'bg-blue-100'; textColor = 'text-blue-800'; text = 'Unknown'; break;
+// Updated logic for simplified statuses: PENDING, RUNNING, STOPPED
+function StatusBadge({ status }) {
+    const lowerStatus = status ? status.toLowerCase() : 'unknown';
+    let bgColor = 'bg-blue-100';    // Default/Unknown color
+    let textColor = 'text-blue-800';
+    let content = 'UNKNOWN'; // Default text
+    let showSpinner = false;
+
+    // --- Updated Status Mapping ---
+    if (lowerStatus === 'running') {
+        content = 'RUNNING';
+        bgColor = 'bg-green-100';
+        textColor = 'text-green-800';
+        showSpinner = false;
+    } else if (lowerStatus === 'stopped' || lowerStatus === 'error') {
+        // Grouping stopped and error under 'STOPPED' display
+        content = 'STOPPED';
+        bgColor = 'bg-gray-100'; // Using gray for stopped/error state
+        textColor = 'text-gray-800';
+        showSpinner = false;
+    } else if (['pending', 'starting', 'stopping'].includes(lowerStatus)) {
+        // Grouping transitional states under 'PENDING' display
+        content = 'PENDING';
+        bgColor = 'bg-yellow-100';
+        textColor = 'text-yellow-800';
+        showSpinner = true; // Show spinner for pending states
     }
-    return <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${bgColor} ${textColor} ${animate}`}>{text}</span>;
+    // --- End Updated Status Mapping ---
+
+    return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bgColor} ${textColor}`}>
+            {showSpinner && (
+                // Simple SVG Spinner with Tailwind animation
+                <svg className="animate-spin -ml-0.5 mr-1.5 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            )}
+            {content}
+        </span>
+    );
 }
 
 // --- CSRF Token Helper ---
-function getCsrfToken() { /* ... same as before ... */
+function getCsrfToken() { /* ... same helper function ... */
     let csrfToken = null;
     if (document.cookie && document.cookie !== '') { /* ... cookie parsing ... */
         const cookies = document.cookie.split(';');
@@ -38,181 +64,205 @@ function getCsrfToken() { /* ... same as before ... */
 
 // --- Main Page Component ---
 function InstanceListPage() {
-  // Initialize state with an empty array - CRITICAL
   const [instances, setInstances] = useState([]);
   const [isLoading, setIsLoading] = useState(true); // For initial load
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(null); // For fetch/action errors
   const [actionLoading, setActionLoading] = useState(null); // Tracks instance ID being actioned
+  const [successMessage, setSuccessMessage] = useState(''); // For messages from redirects
 
-  // Fetch instances function with updated response handling
+  const location = useLocation(); // Get location state for messages
+
+  // Effect to handle success messages passed via navigation state
+  useEffect(() => {
+      if (location.state?.message) {
+          setSuccessMessage(location.state.message);
+          const timer = setTimeout(() => setSuccessMessage(''), 5000);
+          // Clear location state after showing message (optional)
+          // window.history.replaceState({}, document.title)
+          return () => clearTimeout(timer);
+      }
+  }, [location]);
+
+
+  // Fetch instances function (using robust handling from previous step)
   const fetchInstances = useCallback(async (showLoadingIndicator = false) => {
     if (showLoadingIndicator) setIsLoading(true);
-    setError(null); // Clear previous errors on fetch attempt
-    console.log("Fetching instances from /api/instances/ ...");
+    // setError(null); // Keep previous error until success? Or clear? Let's clear on attempt.
+    console.log("Fetching instances from /api/instance/list/ ...");
     try {
       const response = await fetch('/api/instance/list/'); // Your API endpoint
 
-      if (!response.ok) {
-        // Handle non-OK responses (4xx, 5xx) first
+      if (!response.ok) { /* ... error handling as before ... */
         let errorDetail = `Failed to fetch: ${response.statusText} (Status: ${response.status})`;
-        try {
-          const errorData = await response.json(); // Try to get more specific error from JSON body
-          errorDetail = errorData.detail || errorData.error || JSON.stringify(errorData);
-        } catch (e) {
-          console.warn("Could not parse error response JSON.");
-           try { // If not JSON, try getting text
-               const textError = await response.text();
-               console.error("Non-JSON error response text:", textError);
-               errorDetail = textError.substring(0, 200) || errorDetail; // Limit length
-           } catch(e2) { /* Use statusText if text fails */ }
-        }
-        throw new Error(errorDetail); // Throw error to be caught below
+        try { const errorData = await response.json(); errorDetail = errorData.detail || errorData.error || JSON.stringify(errorData); } catch (e) {}
+        throw new Error(errorDetail);
       }
 
       // --- Handle OK response (2xx) ---
       const contentType = response.headers.get("content-type");
-      // Check content length as an additional hint for empty body
       const contentLength = response.headers.get("content-length");
-      let finalData = []; // Default to empty array for instances
-
-      // Only attempt to parse JSON if Content-Type indicates it AND Content-Length isn't '0'
-      // This handles 200 OK with empty body more reliably. 204 No Content has no body/type usually.
+      let finalData = [];
       if (response.status !== 204 && contentLength !== '0' && contentType && contentType.includes("application/json")) {
           try {
               const parsedData = await response.json();
-              // --- Ensure the final data is an array ---
-              if (Array.isArray(parsedData)) {
-                  finalData = parsedData;
-              } else if (parsedData && Array.isArray(parsedData.results)) {
-                  // Handle DRF paginated response common structure
-                  console.log("API response looks paginated, using 'results' array.");
-                  finalData = parsedData.results;
-              } else {
-                  // Log warning if JSON but not array/paginated structure
-                  console.warn("API response OK and JSON, but not an array or expected structure:", parsedData);
-                  // Keep finalData as empty array, maybe set a non-blocking warning?
-                  // setError("Received unexpected data format from server."); // Avoid setting error on success
-              }
-              // --------------------------------------
-          } catch (jsonError) {
-              // Got 2xx status but body wasn't valid JSON (maybe empty despite headers?)
-              console.warn("Received OK response but failed to parse JSON body (likely empty):", jsonError);
-              // Keep finalData as empty array, do not set component error state
-          }
-      } else {
-          // Got 2xx status (including 204) but no JSON content detected
-          // (either Content-Type wasn't JSON, Content-Length was 0, or status was 204)
-          console.log("Received OK response but no JSON content detected:", { status: response.status, contentType, contentLength });
-          // Keep finalData as empty array
-      }
+              if (Array.isArray(parsedData)) { finalData = parsedData; }
+              else if (parsedData && Array.isArray(parsedData.results)) { finalData = parsedData.results; }
+              else { console.warn("API response OK/JSON but not array/paginated:", parsedData); }
+          } catch (jsonError) { console.warn("Received OK response but failed to parse JSON body:", jsonError); }
+      } else { console.log("Received OK response but no JSON content detected:", { status: response.status, contentType, contentLength }); }
 
-      console.log("Setting instances state with:", finalData);
-      setInstances(finalData); // Update state with parsed data or default empty array
+      setInstances(finalData);
+      // Clear error only if fetch was fully successful
+      if (response.ok) { setError(null); }
 
     } catch (e) {
-      // Catch network errors or errors thrown from response handling
       console.error("ERROR in fetchInstances:", e);
       setError(`Failed to load instances: ${e.message}`);
-      setInstances([]); // Set to empty array on fetch error to prevent .map issues
+      setInstances([]); // Set to empty array on fetch error
     } finally {
       if (showLoadingIndicator) setIsLoading(false);
     }
   }, []); // useCallback dependency array is empty
 
-  // Initial fetch effect remains the same
+  // Initial fetch and polling effect
   useEffect(() => {
-    fetchInstances(true);
-    const intervalId = setInterval(() => fetchInstances(false), 20000);
-    return () => clearInterval(intervalId);
+    fetchInstances(true); // Initial load
+    const intervalId = setInterval(() => fetchInstances(false), 10000); // Poll every 10 seconds
+    return () => clearInterval(intervalId); // Cleanup on unmount
   }, [fetchInstances]);
 
-  // Action Handler remains the same
+  // --- Action Handler - Implemented ---
+  // This logic remains the same, the StatusBadge handles the display change
   const handleInstanceAction = async (instanceId, action) => {
-      setActionLoading(instanceId);
-      setError(null);
+      if (actionLoading) return; // Prevent double clicks
+
+      setActionLoading(instanceId); // Show loading state for this specific button/row
+      setError(null); // Clear previous general errors
+      setSuccessMessage(''); // Clear previous success messages
       const csrfToken = getCsrfToken();
-      const apiUrl = `/api/instances/${instanceId}/${action}/`;
+      // --- Ensure these match your Django API URLs ---
+      const apiUrl = `/api/instances/${instanceId}/${action}/`; // e.g., /api/instances/xyz/start/
+
       console.log(`Requesting action '${action}' for instance ${instanceId}`);
+
+      // Optimistic UI update still uses 'starting' or 'stopping' internally
+      setInstances(prevInstances =>
+        prevInstances.map(inst =>
+          inst.instance_id === instanceId
+            ? { ...inst, status: action === 'start' ? 'starting' : 'stopping' } // Set intermediate status
+            : inst
+        )
+      );
+
       try {
-          const response = await fetch(apiUrl, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
-          // --- Safer Response Handling for Actions (Handles empty 2xx) ---
-          let resultMessage = `Action '${action}' processed.`;
+          const response = await fetch(apiUrl, {
+              method: 'POST',
+              headers: {
+                  // Content-Type might not be needed if no body is sent
+                  'X-CSRFToken': csrfToken,
+              },
+              // body: JSON.stringify({}) // Add body if your API expects one
+          });
+
+          // --- Safer Response Handling for Actions ---
+          let resultMessage = `Action '${action}' processed successfully.`;
           let errorDetail = null;
           let data = null;
           const contentType = response.headers.get("content-type");
-          const contentLength = response.headers.get("content-length");
-
-          // Try parsing JSON only if response suggests it has content
-          if (response.status !== 204 && contentLength !== '0' && contentType?.includes("application/json")) {
+          if (response.status !== 204 && contentType?.includes("application/json")) {
               try { data = await response.json(); } catch (e) { console.warn("Could not parse action response JSON"); }
           }
-
           if (response.ok) { // Includes 200, 201, 202, 204 etc.
                console.log(`${action} successful for ${instanceId}:`, data || response.statusText);
                resultMessage = data?.message || data?.detail || resultMessage;
-               // Optimistic UI update
-               setInstances(prev => prev.map(inst => inst.instance_id === instanceId ? { ...inst, status: action === 'start' ? 'starting' : 'stopping' } : inst));
-               setTimeout(() => fetchInstances(false), 3000); // Refresh list later
-               // Optionally show success message using setError or a dedicated message state
-               // setError(resultMessage); // Example using error state for feedback
+               setSuccessMessage(resultMessage); // Show success feedback
+               // Refresh the list after a short delay to get confirmed status from backend
+               setTimeout(() => fetchInstances(false), 3000);
           } else { // Handle 4xx, 5xx errors
                errorDetail = data?.detail || data?.error || `Action failed: ${response.statusText}`;
                console.error(`Failed to ${action} instance ${instanceId}:`, errorDetail);
                setError(errorDetail); // Set error state
-               setTimeout(() => fetchInstances(false), 1000); // Revert optimistic update maybe
+               fetchInstances(false); // Revert optimistic update immediately on error
           }
-          // --- End Safer Response Handling ---
       } catch (err) {
           console.error(`Network/fetch error during ${action} action for ${instanceId}:`, err);
           setError(`Network error trying to ${action} instance ${instanceId}.`);
+          fetchInstances(false); // Revert optimistic update on network error
       } finally {
-          setActionLoading(null);
+          // Clear loading indicator after a short delay
+          setTimeout(() => setActionLoading(null), 500);
       }
    };
 
-  // --- Render Logic (remains the same) ---
+  // --- Render Logic ---
   if (isLoading) { return <div className="text-center p-6 text-gray-500">Loading instances...</div>; }
 
-  // --- DEBUGGING LOG ---
-  console.log('Rendering InstanceListPage with instances:', instances, 'Is Array:', Array.isArray(instances));
-  // --------------------
+  console.log('Rendering InstanceListPage with instances:', instances, 'Is Array:', Array.isArray(instances)); // Keep for debugging
 
   return (
     <div className="space-y-6">
-       {/* ... Page Title and Launch Button ... */}
+       {/* Page Title and Launch Button */}
         <div className="flex justify-between items-center">
             <h2 className="text-2xl font-semibold text-gray-800">Instances</h2>
             <Link to="/instances/launch" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
             Launch Instance
             </Link>
         </div>
-       {error && <div className="mb-4 p-4 rounded-md bg-red-100 border border-red-200 text-red-800" role="alert">{error}</div>}
-       {/* ... Table Structure ... */}
-       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+
+       {/* Display Success/Error Messages */}
+       {successMessage && <div className="p-4 rounded-md bg-green-100 border border-green-200 text-green-800" role="alert">{successMessage}</div>}
+       {error && <div className="p-4 rounded-md bg-red-100 border border-red-200 text-red-800" role="alert">{error}</div>}
+
+       {/* Table */}
+       <div className="shadow border border-gray-200 sm:rounded-lg overflow-hidden">
          <div className="overflow-x-auto">
            <table className="min-w-full divide-y divide-gray-200">
-             <thead className="bg-gray-50">{/* ... Table Headers ... */}</thead>
+             <thead className="bg-gray-50">
+                <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Server</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+             </thead>
              <tbody className="bg-white divide-y divide-gray-200">
-               {/* Explicitly check if instances is an array before mapping */}
+               {/* Check if instances is an array before mapping */}
                {!isLoading && !Array.isArray(instances) && (
-                   <tr><td colSpan="6" className="px-6 py-4 text-center text-sm text-red-600 italic">Error: Instance data is not in the expected array format. Check console & API response.</td></tr>
+                   <tr><td colSpan="6" className="px-6 py-4 text-center text-sm text-red-600 italic">Error: Invalid instance data format.</td></tr>
                )}
                {!isLoading && Array.isArray(instances) && instances.length === 0 ? (
                  <tr><td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500 italic">No instances found.</td></tr>
                ) : (
-                 /* Only map if it's confirmed to be an array */
                  Array.isArray(instances) && instances.map((instance) => (
                    <tr key={instance.instance_id} className="hover:bg-gray-50">
-                     {/* ... Table Cells ... */}
+                     {/* Table Cells */}
                      <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-700" title={instance.instance_id}>{instance.instance_id?.substring(0, 12) || '-'}</td>
                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{instance.image_name || '-'}</td>
                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{instance.server_hostname || '-'}</td>
-                     <td className="px-6 py-4 whitespace-nowrap text-sm"><StatusBadge status={instance.status} /></td>
+                     <td className="px-6 py-4 whitespace-nowrap text-sm">
+                       <StatusBadge status={instance.status} /> {/* Use **updated** badge */}
+                     </td>
                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{instance.created_at ? new Date(instance.created_at).toLocaleDateString() : '-'}</td>
                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                       {/* Action Buttons */}
-                       {(instance.status === 'stopped' || instance.status === 'error') && <button onClick={() => handleInstanceAction(instance.instance_id, 'start')} disabled={actionLoading === instance.instance_id || instance.status === 'starting'} className="px-2 py-1 text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 disabled:opacity-50 disabled:cursor-wait"> {actionLoading === instance.instance_id ? '...' : 'Start'} </button>}
-                       {instance.status === 'running' && <button onClick={() => handleInstanceAction(instance.instance_id, 'stop')} disabled={actionLoading === instance.instance_id || instance.status === 'stopping'} className="px-2 py-1 text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 disabled:opacity-50 disabled:cursor-wait"> {actionLoading === instance.instance_id ? '...' : 'Stop'} </button>}
+                       {/* Action Buttons - Logic still based on actual backend status */}
+                       {(instance.status === 'stopped' || instance.status === 'error') &&
+                        <button onClick={() => handleInstanceAction(instance.instance_id, 'start')} disabled={actionLoading === instance.instance_id}
+                                className="px-2 py-1 text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 disabled:opacity-50 disabled:cursor-wait">
+                          {actionLoading === instance.instance_id ? '...' : 'Start'}
+                        </button>
+                       }
+                       {instance.status === 'running' &&
+                        <button onClick={() => handleInstanceAction(instance.instance_id, 'stop')} disabled={actionLoading === instance.instance_id}
+                                className="px-2 py-1 text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 disabled:opacity-50 disabled:cursor-wait">
+                          {actionLoading === instance.instance_id ? '...' : 'Stop'}
+                        </button>
+                       }
+                       {/* No actions shown during pending states */}
+                       {(instance.status === 'pending' || instance.status === 'starting' || instance.status === 'stopping') &&
+                            <span className="text-xs text-gray-400 italic">(Action unavailable)</span>
+                       }
                        {/* SSH Info Button */}
                        {instance.status === 'running' && instance.ssh_host_port && <button onClick={() => alert(`SSH to host ${instance.server_hostname} on port ${instance.ssh_host_port}`)} className="px-2 py-1 text-xs font-medium rounded text-gray-700 bg-gray-200 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-500"> SSH </button>}
                      </td>

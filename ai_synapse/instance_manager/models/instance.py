@@ -462,5 +462,5 @@ class Instance(models.Model):
     @classmethod
     def list_all(cls, account: Account) -> List["Instance"]:
         if account.is_superuser:
-            return cls.objects.all()
-        return cls.objects.filter(account=account)
+            return list(cls.objects.values())
+        return list(cls.objects.filter(account=account).values())

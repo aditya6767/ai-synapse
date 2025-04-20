@@ -13,11 +13,12 @@ import ImageListPage from './pages/ImageListPage';
 import ServerListPage from './pages/ServerListPage';
 import ServerCreatePage from './pages/ServerCreatePage';
 import ImageCreatePage from './pages/ImageCreatePage';
+import CreateInstancePage from './pages/CreateInstancePage';
 
 // --- Import placeholder components for new routes ---
 const DefineImagePage = () => <div className="p-4"><h2 className="text-xl font-semibold">Define New Image</h2><p><ImageCreatePage/></p></div>;
 const AddServerPage = () => <div className="p-4"><h2 className="text-xl font-semibold">Add New Server</h2><p>(Build Component Here)</p></div>;
-const LaunchInstancePage = () => <div className="p-4"><h2 className="text-xl font-semibold">Launch New Instance</h2><p>(Build Component Here)</p></div>;
+const LaunchInstancePage = () => <div className="p-4"><p><CreateInstancePage/></p></div>;
 const NotFoundPage = () => <div className="p-4 text-center"><h2>404 - Page Not Found</h2><Link to="/" className="text-blue-600">Go Home</Link></div>;
 
 
