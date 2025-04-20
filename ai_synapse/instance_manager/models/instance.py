@@ -1,7 +1,6 @@
 import paramiko
-import subprocess
 import logging
-import io
+import subprocess
 import re
 import uuid
 
@@ -10,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 from paramiko import SSHClient
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from typing import List, Optional
+from typing import List, Dict, Any
 
 from user_manager.models import Account
 
@@ -60,7 +59,7 @@ class Instance(models.Model):
         server: Server,
         image: str,
         n_gpus: int = 1,
-    ) -> str:
+    ) -> "Instance":
         try:
             instance: Instance = cls.objects.create(
                 account=account,
@@ -68,14 +67,41 @@ class Instance(models.Model):
                 image=image,
                 n_gpus=n_gpus,
             )
-            instance_id = instance.instance_id
-            return instance_id
+            return instance
         except IntegrityError as e:
             logger.error(f"Instance creation failed due to integrity issue: {e}")
             raise ValueError("Failed to create instance due to a constraint violation.")
         except Exception as e:
             logger.error(f"Error creating instance: {e}")
             raise e
+    
+    @classmethod
+    def launch(
+        cls,
+        account: Account,
+        server: Server,
+        image_id: int,
+        n_gpus: int = 1,
+    ) -> str:
+        with transaction.atomic():
+            try:
+                image = Image.objects.get(id=image_id)
+                instance: Instance = cls.create(
+                    account=account,
+                    server=server,
+                    image=image,
+                    n_gpus=n_gpus,
+                )
+                instance.start()
+                instance_id = instance.instance_id
+                return instance_id
+            except IntegrityError as e:
+                logger.error(f"Instance creation failed due to integrity issue: {e}")
+                raise ValueError("Failed to create instance due to a constraint violation.")
+            except Exception as e:
+                logger.error(f"Error creating instance: {e}")
+                raise e
+        
 
     def start(self) -> None:
         """
@@ -120,8 +146,8 @@ class Instance(models.Model):
                     raise InstanceAlreadyRunningException
 
                 # If not running, attempt cleanup before starting
-                logger.info(f"Container '{container_name}' not running. Attempting cleanup before start...")
-                self._stop_and_remove_container(ssh, container_name, server.name)
+                # logger.info(f"Container '{container_name}' not running. Attempting cleanup before start...")
+                # self._stop_and_remove_container(ssh, container_name, server.name)
                 
                 self.status = InstanceStatus.PENDING
                 self.save()
@@ -129,8 +155,8 @@ class Instance(models.Model):
                 logger.debug(f"Preparing volumes for user '{username}'")
                 volume_args = self._get_volume_mounts(username)
 
-                logger.debug(f"Ensuring image '{registry_image_name}' is pulled on {server.hostname}")
-                self._ensure_image_pulled(ssh, registry_image_name, server.hostname)
+                logger.debug(f"Ensuring image '{registry_image_name}' is pulled on {server.name}")
+                self._ensure_image_pulled(ssh, registry_image_name, server.name)
 
                 logger.info(f"Attempting to run container '{container_name}'...")
                 container_id = self._run_podman_container(
@@ -143,7 +169,8 @@ class Instance(models.Model):
                 )
 
                 logger.info(f"Container '{container_id}' started. Fetching IP address...")
-                self.instance_ip = server.instance_ip
+                self._configure_podman_container(ssh, container_name)
+                self.instance_ip = server.ip_address
                 self.status = InstanceStatus.RUNNING
                 self.save()
                 logger.info(f"Instance {self.instance_id} (Container {container_id}) successfully started and marked as running on {server.name}")
@@ -155,11 +182,11 @@ class Instance(models.Model):
                 if ssh:
                     try:
                         ssh.close()
-                        logger.debug(f"SSH connection closed for {server.hostname if 'server' in locals() else 'unknown server'}")
+                        logger.debug(f"SSH connection closed for {server.name if 'server' in locals() else 'unknown server'}")
                     except Exception as e_close:
                         logger.error(f"Error closing SSH connection: {e_close}")
 
-    def stop_instance(self) -> None:
+    def stop(self) -> None:
         """
         Connects to the instance's server and stops & removes its associated Podman container.
         Updates instance status appropriately.
@@ -168,32 +195,38 @@ class Instance(models.Model):
             ssh: paramiko.SSHClient | None = None # Ensure ssh client is defined for finally block
 
             try:
-                ssh = self._connect_ssh(server.name)
                 server = self.server
+                ssh = self._connect_ssh(server.name)
                 if not server:
                     if self.status == InstanceStatus.STOPPED:
                         logger.info(f"Instance {self.instance_id} already stopped and has no server assigned.")
                         return True
                     raise ValueError(f"Instance {self.instance_id} has no Server association, cannot determine where to stop.")
-
-                container_identifier = self.instance_id
+                
+                account = self.account
+                username = account.username
+                if not username: raise ValueError(f"Account {account.id} has no username.")
+                container_name = self._get_container_name(username)
 
                 logger.info(f"Processing stop request for instance {self.instance_id} on {server.name}")
 
-                is_running = self._check_user_container_running(ssh, container_identifier, server.name)
+                is_running = self._check_user_container_running(ssh, container_name, server.name)
                 if not is_running:
-                    logger.info(f"Container '{container_identifier}' for instance {self.instance_id} is already stopped on {server.name}.")
+                    logger.info(f"Container '{container_name}' for instance {self.instance_id} is already stopped on {server.name}.")
                     if self.status != InstanceStatus.STOPPED:
                         logger.warning(f"Instance {self.instance_id} DB status was '{self.status}', updating to STOPPED.")
                         self.status = InstanceStatus.STOPPED
                         self.save()
                     raise InstanceAlreadyStoppedException
                        
-                self._stop_and_remove_container(
+                self._stop_container(
                     ssh,
-                    container_identifier,
+                    container_name,
                     server.name
                 )
+                self.status = InstanceStatus.STOPPED
+                self.save()
+                logger.info(f"Instance {self.instance_id} (Container {container_name}) successfully stopped and marked as stopped on {server.name}")
             except Exception as e:
                 logger.error(f"Failed to complete stop process for instance {self.instance_id}: {e}")
                 raise 
@@ -219,8 +252,9 @@ class Instance(models.Model):
         return ssh
     
     def _get_container_name(self, username: str) -> str:
-        container_name = f"{self.instance_id}-{username}-container"
-        return container_name
+        container_name = f"{username}-container"
+        refined_container_name = re.sub(r"[._]", "-", container_name)
+        return refined_container_name
     
     def _get_volume_mounts(self, username: str) -> List[str]:
         """
@@ -326,7 +360,56 @@ class Instance(models.Model):
             else:
                 raise Exception(f"SSH execution failed on {instance_id}: {e}") from e
             
-    def _stop_and_remove_container(self, ssh, container_name: str, server_name: str) -> None:
+    def _configure_podman_container(
+        self, ssh, container_name: str,
+    ) -> str:
+        try: 
+            username = self.account.username
+            ssh_public_key = self.account.ssh_public_key
+            server_name = self.server.name
+            """Configure podman container"""
+            container_configure_command = [
+                "sudo",
+                "podman",
+                "exec",
+                container_name,
+                "bash",
+                "-c",
+                f"chmod 775 /home/ubuntu && "
+                f"chown -R ubuntu:ubuntu /home/ubuntu && "
+                f"mkdir -p /home/ubuntu/.ssh && "
+                f"chmod 700 /home/ubuntu/.ssh && "
+                f"grep -qxF '{ssh_public_key}' /home/ubuntu/.ssh/authorized_keys || echo '{ssh_public_key}' >> /home/ubuntu/.ssh/authorized_keys && "
+                f"chmod 600 /home/ubuntu/.ssh/authorized_keys && "
+                f"touch /home/ubuntu/.bashrc && "
+                f"chmod 644 /home/ubuntu/.bashrc && "
+                f"touch /home/ubuntu/.bash_profile && "
+                f"chmod 644 /home/ubuntu/.bash_profile && "
+                f"echo 'LANG=\"en_US.UTF-8\"' | tee /etc/default/locale && "
+                f"sed -i '\\|source /home/ubuntu/.bashrc|d' /home/ubuntu/.bash_profile && echo 'source /home/ubuntu/.bashrc' >> /home/ubuntu/.bash_profile && "
+                f"grep -qxF '[[ -n \\$SSH_TTY && -z \\$TMUX ]] && echo -e \"\\n🚀 Welcome {username}, You are connected to \\$(hostname) 🚀\\n\"' /home/ubuntu/.bashrc || "
+                f"echo '[[ -n \\$SSH_TTY && -z \\$TMUX ]] && echo -e \"\\n🚀 Welcome {username}, You are connected to \\$(hostname) 🚀\\n\"' >> /home/ubuntu/.bashrc && "
+                f"chmod 644 /etc/default/locale",
+            ]
+            container_configure_command = subprocess.list2cmdline(container_configure_command)
+
+            stdin, stdout, stderr = ssh.exec_command(container_configure_command)
+            exit_status = stdout.channel.recv_exit_status()
+
+            if exit_status == 0:
+                logger.info(f"Successfully configured Podman container {container_name} on {server_name}")
+            else:
+                error_msg = stderr.read().decode().strip()
+                logger.error(f"Couldn't configure container {container_name}, Stopping instance... {error_msg}")
+                self.stop()
+                raise Exception(
+                    f"Couldn't configure Podman container {container_name} on {server_name}. "
+                )
+        except Exception as e:
+            logger.exception(f"Error configuring Podman container {container_name}, {server_name}: {e}")
+            raise Exception(f"Failed to configure Podman container {container_name}, {server_name}: {e}") from e
+            
+    def _stop_container(self, ssh, container_name: str, server_name: str) -> None:
         """
         Stop and remove the specified Podman container, using Django settings.
         Runs stop and remove as separate commands for better error handling.
@@ -334,8 +417,6 @@ class Instance(models.Model):
         try:
             podman_settings = getattr(settings, 'PODMAN_SETTINGS', {})
             stop_timeout = podman_settings.get('stop_timeout', 10)
-            force_remove = podman_settings.get('force_remove', False)
-            ignore_not_found = podman_settings.get('ignore_remove_not_found', True)
             ssh_timeout = podman_settings.get('ssh_exec_timeout', 60)
         except Exception as e:
             logger.exception(f"Error accessing Podman stop/remove settings: {e}")
@@ -358,6 +439,21 @@ class Instance(models.Model):
         except Exception as e:
             logger.exception(f"Error executing stop command for {container_name} on {server_name}: {e}")
             raise Exception(f"Failed during stop operation for {container_name} on {server_name}: {e}") from e
+
+    
+    def _remove_container(self, ssh, container_name: str, server_name: str) -> None:
+        """
+        Stop and remove the specified Podman container, using Django settings.
+        Runs stop and remove as separate commands for better error handling.
+        """
+        try:
+            podman_settings = getattr(settings, 'PODMAN_SETTINGS', {})
+            force_remove = podman_settings.get('force_remove', False)
+            ignore_not_found = podman_settings.get('ignore_remove_not_found', True)
+            ssh_timeout = podman_settings.get('ssh_exec_timeout', 60)
+        except Exception as e:
+            logger.exception(f"Error accessing Podman stop/remove settings: {e}")
+            raise ImproperlyConfigured(f"Error accessing Podman stop/remove settings: {e}") from e
 
         remove_command_parts = [f"sudo podman", "rm"]
         if force_remove:
@@ -459,8 +555,34 @@ class Instance(models.Model):
             logger.exception(f"Error executing SSH command for status check of container '{container_name}' on {hostname}: {e}")
             raise Exception(f"Failed to execute status check command on {hostname}: {e}") from e
 
+    def serialize(self) -> dict:
+        """
+        Serializes the instance object into a dictionary format.
+        """
+        return {
+            "id": self.id,
+            "instance_id": self.instance_id,
+            "instance_name": self.instance_name,
+            "account": self.account.email,
+            "server": self.server.name,
+            "image": self.image.name,
+            "status": self.status,
+            "instance_ip": self.instance_ip,
+            "n_gpus": self.n_gpus,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
     @classmethod
-    def list_all(cls, account: Account) -> List["Instance"]:
+    def list_all(cls, account: Account) -> List[Dict[str, Any]]: # Added type hints
+        """
+        Lists all instances for superusers, or instances for a specific account.
+        Returns a list of dictionaries formatted by the instance's serialize() method.
+        """
         if account.is_superuser:
-            return list(cls.objects.values())
-        return list(cls.objects.filter(account=account).values())
+            instances_queryset = cls.objects.all()
+        else:
+            instances_queryset = cls.objects.filter(account=account)
+
+        serialized_instances = [instance.serialize() for instance in instances_queryset]
+        return serialized_instances

@@ -188,7 +188,7 @@ LOGGING = {
 }
 
 TAILSCALE_AUTH_KEY = os.getenv("TAILSCALE_AUTH_KEY")
-SSH_USERNAME = os.getenv("SSH_USERNAME")
+SSH_USERNAME = os.getenv("SSH_USERNAME", "ubuntu")
 
 # PODMAN_MOUNT_PATHS='/host/data/{username}:/container/data,/host/conf/{username}:/container/conf'
 raw_mount_paths = os.environ.get('PODMAN_MOUNT_PATHS', '')

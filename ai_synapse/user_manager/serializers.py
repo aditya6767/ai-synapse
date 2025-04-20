@@ -53,3 +53,24 @@ class SignupSerializer(serializers.ModelSerializer):
             # Catch potential errors from create_user (like missing fields if manager requires more)
              raise serializers.ValidationError(str(e))
 
+
+class UserProfileSerializer(serializers.ModelSerializer):
+        """
+        Serializer for retrieving and updating the user's profile,
+        specifically allowing ssh_public_key updates.
+        """
+        class Meta:
+            model = Account
+            # Fields to display and potentially update
+            fields = ['id', 'username', 'email', 'is_staff', 'ssh_public_key']
+            # Prevent users from changing username/email via this profile endpoint
+            read_only_fields = ['id', 'username', 'email', 'is_staff']
+            # ssh_public_key is writable. DRF respects blank=True, null=True from the model.
+            extra_kwargs = {
+                'ssh_public_key': {
+                    'required': False,      # Not required to submit
+                    'allow_blank': True,    # Allow empty string
+                    'allow_null': True,     # Allow null value
+                    'style': {'base_template': 'textarea.html'} # Suggest textarea rendering in Browsable API
+                }
+            }

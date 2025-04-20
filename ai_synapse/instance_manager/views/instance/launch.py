@@ -9,25 +9,29 @@ from user_manager.permissions import IsAuthenticatedUser
 
 logger = logging.getLogger(__name__)
 
-class CreateInstanceView(APIView):
+class LaunchInstanceView(APIView):
     permission_classes = [IsAuthenticatedUser]
 
     def post(self, request):
         try:
             account = request.user
-            image = request.data.get("image", "default_image:latest")
+            email = account.email
+            image_id = request.data.get("image_id", None)
             n_gpus = request.data.get("n_gpus") or 1 
 
-            logger.info(f"User {account.username} requested an instance with image '{image}' and {n_gpus} GPUs.")
+            if image_id is None:
+                logger.error(f"Image not provided for user {email}")
+                return Response({"error": "Image not provided"}, status=status.HTTP_400_BAD_REQUEST)
+            logger.info(f"User {account.username} requested an instance with image '{image_id}' and {n_gpus} GPUs.")
 
             available_server = Server.get_available_server()
 
             if not available_server:
-                logger.error(f"No available servers for user {account.username} to start instance")
+                logger.error(f"No available servers for user {email} to start instance")
                 return Response(status=status.HTTP_409_CONFLICT)
 
-            instance_id: str = Instance.create(account, available_server, image, n_gpus)
-            logger.info(f"Instance {instance_id} created successfully for user {account.username}")
+            instance_id: str = Instance.launch(account, available_server, image_id, n_gpus)
+            logger.info(f"Instance {instance_id} launched successfully for user {email}")
             return Response(status=status.HTTP_201_CREATED)
         except Exception:
             logger.exception(f"Unexpected error occurred")

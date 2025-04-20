@@ -14,17 +14,10 @@ logger = logging.getLogger(__name__)
 class StartInstanceView(APIView):
     permission_classes = [IsAuthenticatedUser]
 
-    def post(self, request):
+    def post(self, request, instance_id):
         try:
             account = request.user
-            instance_id = request.data.get("instance_id", None)
-
-            if not instance_id:
-                logger.error("Instance ID is required to stop the instance")
-                return Response(status=status.HTTP_400_BAD_REQUEST)
-
-            instance = Instance.objects.get(id=instance_id, account=account, status="running")
-            
+            instance = Instance.objects.get(id=instance_id)
             instance.start()
             return Response(status=status.HTTP_200_OK)
         except InstanceAlreadyRunningException:

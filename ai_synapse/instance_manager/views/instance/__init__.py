@@ -1,4 +1,4 @@
 from .list import ListInstancesView
-from .create import CreateInstanceView
+from .launch import LaunchInstanceView
 from .stop import StopInstanceView
 from .start import StartInstanceView

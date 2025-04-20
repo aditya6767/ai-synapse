@@ -14,14 +14,9 @@ logger = logging.getLogger(__name__)
 class StopInstanceView(APIView):
     permission_classes = [IsAuthenticatedUser]
 
-    def post(self, request):
+    def post(self, request, instance_id):
         try:
             account = request.user
-            instance_id = request.data.get("instance_id")
-
-            if not instance_id:
-                return Response(status=status.HTTP_400_BAD_REQUEST)
-
             instance = Instance.objects.get(id=instance_id, account=account, status="running")
             instance.stop()
             return Response(status=status.HTTP_200_OK)

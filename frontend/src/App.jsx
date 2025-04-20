@@ -13,12 +13,13 @@ import ImageListPage from './pages/ImageListPage';
 import ServerListPage from './pages/ServerListPage';
 import ServerCreatePage from './pages/ServerCreatePage';
 import ImageCreatePage from './pages/ImageCreatePage';
-import CreateInstancePage from './pages/CreateInstancePage';
+import LaunchInstancePage from './pages/LaunchInstancePage';
+import UserProfilePage from './pages/UserProfilePage';
 
 // --- Import placeholder components for new routes ---
 const DefineImagePage = () => <div className="p-4"><h2 className="text-xl font-semibold">Define New Image</h2><p><ImageCreatePage/></p></div>;
 const AddServerPage = () => <div className="p-4"><h2 className="text-xl font-semibold">Add New Server</h2><p>(Build Component Here)</p></div>;
-const LaunchInstancePage = () => <div className="p-4"><p><CreateInstancePage/></p></div>;
+const LaunchInstancePageComp = () => <div className="p-4"><p><LaunchInstancePage/></p></div>;
 const NotFoundPage = () => <div className="p-4 text-center"><h2>404 - Page Not Found</h2><Link to="/" className="text-blue-600">Go Home</Link></div>;
 
 
@@ -114,6 +115,9 @@ function MainLayout() {
              {user ? (
                 <>
                     <div className="text-sm font-medium text-white mb-1">User: {user.username}</div>
+                    <div>
+                        <NavLink to="/profile">Profile</NavLink>
+                    </div>
                     <button onClick={handleLogout} className="w-full text-left text-gray-400 hover:text-white text-xs focus:outline-none">Logout</button>
                 </>
              ) : (
@@ -152,7 +156,8 @@ function App() {
         <Route index element={<InstanceListPage />} /> {/* Default for "/" */}
         <Route path="images" element={<ImageListPage />} />
         <Route path="images/define" element={<DefineImagePage />} /> {/* Route for defining images */}
-        <Route path="instances/launch" element={<LaunchInstancePage />} /> {/* Route for launching instances */}
+        <Route path="instances/launch" element={<LaunchInstancePageComp />} /> {/* Route for launching instances */}
+        <Route path="/profile" element={<UserProfilePage />} />
 
         {/* Admin-protected routes */}
         {/* Wrap specific admin routes with RequireAdmin */}

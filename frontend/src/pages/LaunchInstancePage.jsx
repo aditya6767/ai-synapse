@@ -17,7 +17,7 @@ function getCsrfToken() {
     return csrfToken;
 }
 
-function CreateInstancePage() {
+function LaunchInstancePage() {
   // State for form inputs - Server selection removed
   const [selectedImageId, setSelectedImageId] = useState('');
   const [numGpus, setNumGpus] = useState(1); // Default to 1 GPU
@@ -96,7 +96,7 @@ function CreateInstancePage() {
     try {
       // API endpoint for creating/launching instances
       // Backend needs to handle server selection based on this data
-      const response = await fetch('/api/instance/create/', { // POST to create/launch
+      const response = await fetch('/api/instance/launch/', { // POST to create/launch
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -206,4 +206,4 @@ function CreateInstancePage() {
   );
 }
 
-export default CreateInstancePage;
+export default LaunchInstancePage;

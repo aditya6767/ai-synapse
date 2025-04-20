@@ -73,7 +73,7 @@ class Image(models.Model):
         default_registry = settings.PODMAN_SETTINGS["default_registry"]
         default_namespace = settings.PODMAN_SETTINGS["default_namespace"]
         default_image_repository = settings.PODMAN_SETTINGS["default_image_repository"]
-        custom_registry_image_name = f"{default_registry}/{default_namespace}/{default_image_repository}:{name}"
+        custom_registry_image_name = f"{default_registry}/{default_namespace}/{default_image_repository}:{tag}"
         cls.objects.create(
             name=name,
             tag=tag,

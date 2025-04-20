@@ -129,7 +129,7 @@ function ImageListPage() {
                 Array.isArray(images) && images.map((image) => (
                   <tr key={image.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{image.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-700 max-w-xs truncate" title={image.custom_registry_image_name}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-700 whitespace-nowrap" title={image.custom_registry_image_name}>
                         {image.custom_registry_image_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{image.cuda_version || '-'}</td>

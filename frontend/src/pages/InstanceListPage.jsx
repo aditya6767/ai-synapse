@@ -141,7 +141,7 @@ function InstanceListPage() {
       setSuccessMessage(''); // Clear previous success messages
       const csrfToken = getCsrfToken();
       // --- Ensure these match your Django API URLs ---
-      const apiUrl = `/api/instances/${instanceId}/${action}/`; // e.g., /api/instances/xyz/start/
+      const apiUrl = `/api/instance/${instanceId}/${action}/`; // e.g., /api/instances/xyz/start/
 
       console.log(`Requesting action '${action}' for instance ${instanceId}`);
 
@@ -238,9 +238,9 @@ function InstanceListPage() {
                  Array.isArray(instances) && instances.map((instance) => (
                    <tr key={instance.instance_id} className="hover:bg-gray-50">
                      {/* Table Cells */}
-                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-700" title={instance.instance_id}>{instance.instance_id?.substring(0, 12) || '-'}</td>
-                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{instance.image_name || '-'}</td>
-                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{instance.server_hostname || '-'}</td>
+                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-700" title={instance.instance_id}>{instance.instance_id || '-'}</td>
+                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{instance.image || '-'}</td>
+                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{instance.server || '-'}</td>
                      <td className="px-6 py-4 whitespace-nowrap text-sm">
                        <StatusBadge status={instance.status} /> {/* Use **updated** badge */}
                      </td>
@@ -248,13 +248,13 @@ function InstanceListPage() {
                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                        {/* Action Buttons - Logic still based on actual backend status */}
                        {(instance.status === 'stopped' || instance.status === 'error') &&
-                        <button onClick={() => handleInstanceAction(instance.instance_id, 'start')} disabled={actionLoading === instance.instance_id}
+                        <button onClick={() => handleInstanceAction(instance.id, 'start')} disabled={actionLoading === instance.instance_id}
                                 className="px-2 py-1 text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 disabled:opacity-50 disabled:cursor-wait">
                           {actionLoading === instance.instance_id ? '...' : 'Start'}
                         </button>
                        }
                        {instance.status === 'running' &&
-                        <button onClick={() => handleInstanceAction(instance.instance_id, 'stop')} disabled={actionLoading === instance.instance_id}
+                        <button onClick={() => handleInstanceAction(instance.id, 'stop')} disabled={actionLoading === instance.instance_id}
                                 className="px-2 py-1 text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 disabled:opacity-50 disabled:cursor-wait">
                           {actionLoading === instance.instance_id ? '...' : 'Stop'}
                         </button>

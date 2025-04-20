@@ -41,7 +41,7 @@ class Server(models.Model):
     @classmethod
     def get_available_server(cls):
         """Returns an available server that is not running an instance."""
-        return cls.objects.filter(is_active=True).exclude(instances__status="running").select_related("instances").first()
+        return cls.objects.filter(is_active=True).exclude(instances__status="running").first()
     
     def mark_inactive(self):
         self.is_active = False
