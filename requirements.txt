@@ -7,3 +7,5 @@ paramiko
 django-vite
 notebook
 ipython
+gunicorn
+psycopg2-binary

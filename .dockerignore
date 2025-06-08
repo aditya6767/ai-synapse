@@ -1,0 +1,10 @@
+# .dockerignore for frontend
+
+**/node_modules
+**/dist
+.env*
+.git
+.gitignore
+npm-debug.log*
+*.local
+    

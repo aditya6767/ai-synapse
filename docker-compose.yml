@@ -1,17 +1,44 @@
-version: "3.8"
+version: '3.8'
 
 services:
-  postgres:
-    image: postgres:latest
-    container_name: postgres-local
-    restart: always
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: ai_synapse_backend
+    command: >
+      sh -c "python manage.py migrate &&
+             gunicorn ai_synapse.wsgi:application --bind 0.0.0.0:8000"
+    # volumes:
+    #   # - ./ai_synapse:/app
+    #   - static_volume:/app/staticfiles
+    expose:
+      - 8000
+    depends_on:
+      - db
     env_file:
-      - dev.env
+      - ./dev.env
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: ai_synapse_frontend
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "8080:80"
+    depends_on:
+      - backend
+    env_file:
+      - ./dev.env
+
+  db:
+    image: postgres:14-alpine
+    container_name: ai_synapse_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - ./dev.env
 
 volumes:
   postgres_data:
-    driver: local
+  # static_volume:

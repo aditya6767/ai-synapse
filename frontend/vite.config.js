@@ -3,7 +3,6 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path';
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
@@ -28,7 +27,7 @@ export default defineConfig({
     strictPort: true,
     // --- Proxy API requests to Django backend during development ---
     proxy: {
-      // Requests starting with /api will be forwarded to Django on port 8000
+      // Requests starting with /api will be forwarded to backend
       '/api': {
         target: 'http://127.0.0.1:8000', // Your Django backend address
         changeOrigin: true, // Recommended for virtual hosts
